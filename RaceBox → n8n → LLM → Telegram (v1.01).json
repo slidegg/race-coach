@@ -1,0 +1,799 @@
+{
+  "name": "RaceBox → n8n → LLM → Telegram (v1.01)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "racebox",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "b4e11381-ab24-4afa-a0d7-76465a104730",
+      "name": "Webhook /racebox",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1520,
+        -32
+      ],
+      "webhookId": "3ad8e0a4-3c12-4561-b487-2dab8711b251"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Store the processed lap in workflow memory (static data), keyed by chatId\n// For now, let's hardcode your Telegram chat id.\n// Later you can send it from ESP32 or map track→chat.\n\nconst CHAT_ID = '1029179702'; // e.g. \"1029179702\"\n\nconst data = $getWorkflowStaticData('global');\nif (!data.laps) data.laps = {};\nif (!data.laps[CHAT_ID]) data.laps[CHAT_ID] = [];\n\n// current setup (might be undefined if you didn't /setup yet)\nconst currentSetup = (data.carSetup && data.carSetup[CHAT_ID]) || null;\n\n// If this node is directly after the Webhook, the payload will be under `body`.\n// If it's after your KPI Code node, use `$json` directly.\n// To be safe, support both:\nconst p = ($json.body ?? $json) || {};\n\nconst lap = {\n  track: p.track,\n  car: p.car,\n  lap: p.lap,\n  lap_time_s: p.lap_time_s,\n  theoretical_s: p.theoretical_s,\n  gap_to_theoretical_s: p.gap_to_theoretical_s,\n  worst_sector: p.worst_sector,\n  env: p.env,\n  issue_tags: p.issue_tags,\n  setup: currentSetup,\n  ts: Date.now()\n};\n\ndata.laps[CHAT_ID].push(lap);\n\n// keep only last 50 laps\nconst MAX_LAPS = 50;\nif (data.laps[CHAT_ID].length > MAX_LAPS) {\n  data.laps[CHAT_ID] = data.laps[CHAT_ID].slice(-MAX_LAPS);\n}\n\nreturn { json: { ok: true, storedLap: lap } };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1232,
+        -32
+      ],
+      "id": "a23f9e88-a1cf-4738-8784-090f87db84ed",
+      "name": "Store Lap in Memory"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get laps for this Telegram chat from static data\nconst data = $getWorkflowStaticData('global');\nconst chatId = $json.message.chat.id.toString();\n\nconst lapsByChat = (data.laps && data.laps[chatId]) || [];\nconst now = Date.now();\nconst cutoffMs = 30 * 60 * 1000;\nconst recentLaps = lapsByChat.filter(l => now - l.ts <= cutoffMs);\nconst latest = recentLaps[recentLaps.length - 1] || null;\n\nconst currentSetup = (data.carSetup && data.carSetup[chatId]) || null;\n\nreturn {\n  json: {\n    chatId,\n    laps: recentLaps,\n    latestLap: latest,\n    currentSetup\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        112
+      ],
+      "id": "f0542da3-1f8d-409e-9305-3490e181ee5c",
+      "name": "Get Laps for this chat"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1488,
+        288
+      ],
+      "id": "29d8492e-8b20-4151-8f76-c1b794f0dceb",
+      "name": "Telegram Trigger",
+      "webhookId": "a1522b60-2af9-458f-8ff5-f67c41bd68be",
+      "credentials": {
+        "telegramApi": {
+          "id": "bC4obe9RD78sVNxQ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.modelOutput }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        112
+      ],
+      "id": "ffd86352-666d-468f-9891-9d8035c497ca",
+      "name": "Response with Suggestions",
+      "webhookId": "37975aa4-ea3a-4d98-9bd8-50edb728bc8a",
+      "credentials": {
+        "telegramApi": {
+          "id": "bC4obe9RD78sVNxQ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1029179702",
+        "text": "Hi there! 👋 I am your race engineer. Use /coach to start coaching or /setup to define the car model and setup.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1312,
+        528
+      ],
+      "id": "c65a1a82-e632-4b1c-9dea-8565f3e8d043",
+      "name": "Welcome user and ask to trigger workflow",
+      "webhookId": "37975aa4-ea3a-4d98-9bd8-50edb728bc8a",
+      "credentials": {
+        "telegramApi": {
+          "id": "bC4obe9RD78sVNxQ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -752,
+        272
+      ],
+      "id": "99e28931-6553-4313-be54-54a8951a2b79",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "1R4puiXjKx1BOlIV",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7aeb4927-681f-49a1-a6a6-b705688cf487",
+              "name": "modelOutput",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "a97bff3c-bc30-4552-aa92-f9147a55c83f",
+              "name": "chatId",
+              "value": "={{ $('Telegram Trigger').item.json.message.from.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -416,
+        112
+      ],
+      "id": "292d19a7-8e5d-45ba-817a-d01c9385e99d",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/coach",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e867247d-e52b-40bf-984f-cae1b803b1c9"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "coach"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e8d13469-f987-4b44-af9f-cc4214e99f37",
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "/setup",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "setup"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5c396615-879d-4c81-be60-f2dee6dfb1cb",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "else"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -1312,
+        272
+      ],
+      "id": "4b3b3f49-fa87-4aa1-8c3a-11912ccb31a6",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -864,
+        624
+      ],
+      "id": "7e3bf704-0cb9-4a6a-8534-173f7a855954",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "1R4puiXjKx1BOlIV",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a strict JSON normalizer for car setup forms.\n\nThe raw setup data comes from an n8n form and is nested under the key \"data\".\nHere is the raw JSON:\n\n{{ JSON.stringify($json.data) }}\n\nYour job is to map this into a clean, strongly-typed JSON object with these fields:\n\n{\n  \"car_name\": string | null,\n  \"engine\": string | null,\n  \"weight_kg\": number | null,\n  \"coilover\": string | null,\n  \"ecu_peak_boost_bar\": number | null,\n  \"tyre_model\": string | null,\n  \"tyre_size\": number | string | null,\n  \"tyre_age\": string | null,\n  \"pressures_cold_bar\": {\n    \"fl\": number | null,\n    \"fr\": number | null,\n    \"rl\": number | null,\n    \"rr\": number | null\n  },\n  \"pressures_hot_bar\": {\n    \"fl\": number | null,\n    \"fr\": number | null,\n    \"rl\": number | null,\n    \"rr\": number | null\n  },\n  \"wing_deg\": number | null,\n  \"brakes_setup\": string | null,\n  \"notes\": string | null\n}\n\nMapping rules:\n\n- \"car name\" -> car_name\n- \"engine\" -> engine\n- \"car weight (kg)\" -> weight_kg\n- \"coilover\" -> coilover\n- \"ecu map peak boost (bar)\" -> ecu_peak_boost_bar\n- \"tyre model\" -> tyre_model\n- \"tyre size\" -> tyre_size (keep as number if it is just wheel size)\n- \"tyre age\" -> tyre_age\n- \"wing deg\" -> wing_deg\n- \"brakes setup\" -> brakes_setup\n- \"notes\" -> notes\n\nPressures parsing:\n\n- \"pressures cold (bar)\" is a string like \"2, 2, 1.5, 1.5\".\n  - Split by comma or space and parse up to 4 numbers.\n  - Map in this order: [FL, FR, RL, RR].\n  - If there are fewer than 4 values, fill the remaining positions with null.\n  - If a value is 0, empty, or clearly invalid, set it to null.\n- \"pressures hot (bar)\" may be:\n  - 0 or empty -> treat as all nulls,\n  - or a similar string \"2.1, 2.2, 1.9, 1.9\" to parse in the same way.\n\nIf any field is missing, unparseable, or not provided, set it to null, not an empty string.\n\nReturn ONLY the normalized JSON object described above, with no explanation, no comments, no trailing text.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -864,
+        448
+      ],
+      "id": "ebb20647-89e6-4994-9240-0209eaa187ae",
+      "name": "Basic LLM Chain Parser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a friendly concise race engineer for track days.\n\nCurrent setup JSON:\n{{ JSON.stringify($json.currentSetup) }}\n\nRecent laps JSON:\n{{ JSON.stringify($json.laps) }}\n\nLatest lap JSON:\n{{ JSON.stringify($json.latestLap) }}\n\nExplain where the driver is losing time vs their own best laps.\nSuggest at most:\n- 3 driving changes (braking, line, throttle)\n- couple of small setup changes, consistent with current setup and safe.\n\nBe conservative and safe. Max ~7 bullet points.\nGive also an overview of the driver progress.\nFinish with one short sentence the driver can remember on the next lap.\n",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -752,
+        112
+      ],
+      "id": "bd34b2d3-6b02-4b93-9c07-a14de1cd7664",
+      "name": "Basic LLM Chain Coach",
+      "alwaysOutputData": false,
+      "executeOnce": false,
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7aeb4927-681f-49a1-a6a6-b705688cf487",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "a97bff3c-bc30-4552-aa92-f9147a55c83f",
+              "name": "chatId",
+              "value": "={{ $('Telegram Trigger').item.json.message.from.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -528,
+        448
+      ],
+      "id": "f42c81ff-f16c-4719-8c51-9e1d02748478",
+      "name": "Edit Fields Parser"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=Great! Your car setup has been updated successfully! 🚗🔧\n\nHere is your saved setup:\n\n🧰 **General**\n• Car: {{ $json.carSetup.car_name || $json.carSetup.carname }}\n• Engine: {{ $json.carSetup.engine }}\n• Weight: {{ $json.carSetup.weight_kg || $json.carSetup.weightkg }} kg\n• Coilovers: {{ $json.carSetup.coilover }}\n• ECU Peak Boost: {{ $json.carSetup.ecu_peak_boost_bar || $json.carSetup.ecupeakboostbar }} bar\n\n🛞 **Tyres**\n• Model: {{ $json.carSetup.tyre_model || $json.carSetup.tyremodel }}\n• Size: {{ $json.carSetup.tyre_size || $json.carSetup.tyresize }}\n• Age: {{ $json.carSetup.tyre_age || $json.carSetup.tyreage }}\n\n⏲❄️ Cold pressures (bar):\nFL {{ $json.carSetup.pressures_cold_bar?.fl }},\nFR {{ $json.carSetup.pressures_cold_bar?.fr }},\nRL {{ $json.carSetup.pressures_cold_bar?.rl }},\nRR {{ $json.carSetup.pressures_cold_bar?.rr }}\n\n⏲🌡️ Hot pressures (bar):\nFL {{ $json.carSetup.pressures_hot_bar?.fl }},\nFR {{ $json.carSetup.pressures_hot_bar?.fr }},\nRL {{ $json.carSetup.pressures_hot_bar?.rl }},\nRR {{ $json.carSetup.pressures_hot_bar?.rr }}\n\n🏎️ **Aero & Brakes**\n• Wing angle: {{ $json.carSetup.wing_deg || $json.carSetup.wingdeg }}°\n• Brakes: {{ $json.carSetup.brakes_setup || $json.carSetup.brakessetup }}\n\n📝 **Notes**\n{{ $json.carSetup.notes }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        48,
+        368
+      ],
+      "id": "5500fbf5-adc0-462d-a623-71e5c2a76bae",
+      "name": "Updated Setup Successful Response",
+      "webhookId": "37975aa4-ea3a-4d98-9bd8-50edb728bc8a",
+      "credentials": {
+        "telegramApi": {
+          "id": "bC4obe9RD78sVNxQ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "380ccf39-0715-42fd-b1cc-5a53d6b909d1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -160,
+        448
+      ],
+      "id": "06fd62a2-d90e-4562-b95e-779a2b469c94",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=The car setup definition failed. Please check the logs.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        48,
+        560
+      ],
+      "id": "11028a1a-70e8-481a-bc9b-800f37a34d6f",
+      "name": "Updated Setup Failed Response",
+      "webhookId": "37975aa4-ea3a-4d98-9bd8-50edb728bc8a",
+      "credentials": {
+        "telegramApi": {
+          "id": "bC4obe9RD78sVNxQ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $json.message.chat.id }}",
+        "message": "Please fill in the form with the car details",
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "car name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "engine",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "car weight (kg)",
+              "fieldType": "number"
+            },
+            {
+              "fieldLabel": "coilover"
+            },
+            {
+              "fieldLabel": "ecu map peak boost (bar)",
+              "fieldType": "number"
+            },
+            {
+              "fieldLabel": "tyre model",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "tyre size",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "tyre age",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "pristine"
+                  },
+                  {
+                    "option": "mildly used"
+                  },
+                  {
+                    "option": "half life"
+                  },
+                  {
+                    "option": "worn out"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "pressures cold (bar)",
+              "placeholder": "fl, fr, rl, rr",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "pressures hot (bar)",
+              "placeholder": "fl, fr, rl, rr"
+            },
+            {
+              "fieldLabel": "wing deg",
+              "fieldType": "number"
+            },
+            {
+              "fieldLabel": "brakes setup",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "notes",
+              "fieldType": "textarea",
+              "placeholder": "other mods"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1056,
+        448
+      ],
+      "id": "ead31138-ace3-4031-b52c-6cfc397da986",
+      "name": "Send a text message",
+      "webhookId": "54855663-12ed-449d-82c4-5174e9bcd873",
+      "notesInFlow": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "bC4obe9RD78sVNxQ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $getWorkflowStaticData('global');\n\n// 1. Get chatId from the current item\nconst chatId = $json.chatId.toString();\n\n// 2. Parse the JSON string from the LLM output (`text` field)\nlet parsedSetup;\ntry {\n  const raw = $json.text || '';\n  parsedSetup = JSON.parse(raw);\n} catch (e) {\n  throw new Error('Failed to parse setup JSON from LLM. Raw text: ' + $json.text);\n}\n\n// 3. Init storage if needed\nif (!data.carSetup) data.carSetup = {};\n\n// 4. Save setup under this chatId\ndata.carSetup[chatId] = {\n  ...parsedSetup,\n  updated_at: Date.now()\n};\n\n// 5. Return for debugging / next nodes\nreturn {\n  json: {\n    ok: true,\n    chatId,\n    carSetup: data.carSetup[chatId]\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        448
+      ],
+      "id": "ab49978e-35bb-4240-8f12-657270ccbd91",
+      "name": "Parse and Save Setup"
+    }
+  ],
+  "pinData": {
+    "Webhook /racebox": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.srv1134803.hstgr.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; el-GR) WindowsPowerShell/5.1.26100.6899",
+            "content-length": "199",
+            "content-type": "application/json",
+            "expect": "100-continue",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "n8n.srv1134803.hstgr.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "226800c87a1b",
+            "x-real-ip": "172.18.0.1",
+            "accept-encoding": "gzip"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "track": "Serres",
+            "car": "MR2",
+            "lap": 12,
+            "lap_time_s": 85.64,
+            "theoretical_s": 84.98,
+            "sectors": [
+              {
+                "id": "T3",
+                "t_s": 18.42,
+                "min_kmh": 52
+              }
+            ],
+            "env": {
+              "temp_c": 26,
+              "dry": true
+            }
+          },
+          "webhookUrl": "https://n8n.srv1134803.hstgr.cloud/webhook-test/racebox",
+          "executionMode": "test"
+        }
+      }
+    ],
+    "Send a text message": [
+      {
+        "json": {
+          "data": {
+            "car name": "bmw e46",
+            "engine": "n54b30a",
+            "car weight (kg)": 1400,
+            "coilover": "kw variant 3",
+            "ecu map peak boost (bar)": 1,
+            "tyre model": "ar1",
+            "tyre size": 17,
+            "tyre age": "pristine",
+            "pressures cold (bar)": "2, 2, 1.5, 1.5",
+            "pressures hot (bar)": 0,
+            "wing deg": 30,
+            "brakes setup": "big brakes",
+            "notes": "mhd ots map, front diffuser"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook /racebox": {
+      "main": [
+        [
+          {
+            "node": "Store Lap in Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Laps for this chat": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain Coach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response with Suggestions": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain Coach",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Response with Suggestions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get Laps for this chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Welcome user and ask to trigger workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain Parser": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain Coach": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields Parser": {
+      "main": [
+        [
+          {
+            "node": "Parse and Save Setup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Updated Setup Successful Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Updated Setup Failed Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Welcome user and ask to trigger workflow": {
+      "main": [
+        []
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Save Setup": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "743961b9-0c68-4182-a99f-f9922bbcd69f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f97d189cf5759d62be9a5b9c652b22a014caa6f528cae3e0ab464a6ab9d64188"
+  },
+  "id": "S76MBdSGxPdy3fwK",
+  "tags": [
+    {
+      "updatedAt": "2025-11-20T03:44:45.645Z",
+      "createdAt": "2025-11-20T03:44:45.645Z",
+      "id": "wANT51oNwLFi5DqG",
+      "name": "car setup telegram"
+    }
+  ]
+}
