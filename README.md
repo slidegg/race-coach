@@ -56,32 +56,33 @@ Stored fields include:
 ## 🏗️ System Architecture
 
 ```mermaid
-flowchart TD
+flowchart LR
+    RaceBox --> ESP32 --> N8N --> Telegram
 
-A[RaceBox Mini S] -- BLE --> B[ESP32 BLE Client]
-B -- HTTP POST --> C[n8n Webhook]
+    subgraph n8n
+        direction TB
 
-C --> D[KPI Processing]
-D --> E[staticData.laps]
+        N8N --> KPIs[KPI Processing Code Node]
+        KPIs --> Laps[(staticData.laps)]
 
-subgraph Telegram Flow
-    F[Telegram Bot] --> G[/setup Form]
-    F --> H[/coach Command]
-end
+        Telegram[Telegram Trigger] --> IF_CMD{Command?}
+        IF_CMD -- "/setup" --> SetupForm[n8n Form Car Setup]
+        IF_CMD -- "/coach" --> CoachReq[Coach Request]
 
-H --> I[LLM Analysis]
-I --> F
+        SetupForm --> SetupLLM[Setup Parser LLM]
+        SetupLLM --> SaveSetup[Save Setup Code Node]
+        SaveSetup --> CarSetup[(staticData.carSetup)]
 
-G --> J[Setup Parser LLM]
-J --> K[Save Setup]
-K --> F
+        CoachReq --> GetLaps[Get Laps Code Node]
+        GetLaps --> CoachLLM[LLM Analysis]
+        CarSetup --> CoachLLM
+        Laps --> CoachLLM
 
-C --> E
-K --> L[staticData.carSetup]
-L --> I
-E --> I
+        CoachLLM --> Reply[Telegram Reply]
+        Reply --> Telegram
+    end
+    style RaceBox fill:#1e90ff,stroke:#003f7f,stroke-width:2px,color:white
 ```
-
 ---
 
 ## ⚙️ How It Works
