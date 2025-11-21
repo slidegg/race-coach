@@ -1,0 +1,99 @@
+Commercial License Agreement
+============================
+
+Software: Ai Race Coach
+Author:  Greg Papaspyropoulos
+Year:    2025
+
+IMPORTANT: This is a simplified commercial license template intended for
+general informational and personal use by the author. It does not replace
+professional legal advice.
+
+1. Grant of License
+-------------------
+
+Subject to the terms of this Agreement and payment of the applicable fees,
+the Licensor (Greg Papaspyropoulos) grants you ("Licensee") a non-exclusive,
+non-transferable, worldwide license to:
+
+- Use the Software for internal or external commercial purposes.
+- Integrate the Software into proprietary or closed-source products.
+- Deploy the Software as part of a commercial service or SaaS offering
+  without the obligations imposed by the GNU Affero General Public License
+  version 3 (AGPLv3).
+
+2. Relationship with the AGPLv3
+-------------------------------
+
+The Software is also made available under the GNU Affero General Public
+License version 3 (AGPLv3).
+
+- If you choose to use the Software under the AGPLv3, this Commercial
+  License does not apply to you.
+
+- If you choose to use the Software under this Commercial License, you are
+  not required to release your source code or derivative works under the
+  AGPLv3, but you must comply with the terms of this Commercial License.
+
+You must choose ONE of the two options:
+- AGPLv3 (open source, with copyleft obligations), OR
+- This Commercial License (proprietary use, with payment and restrictions).
+
+3. Restrictions
+---------------
+
+Under this Commercial License, you MAY NOT:
+
+- Resell, relicense, or redistribute the Software itself as a standalone
+  product in source or binary form.
+- Claim ownership or authorship of the original Software.
+- Remove or alter copyright notices that identify the original author.
+- Use the name "n8n AI Race Coach Workflow" or "Greg Papaspyropoulos" to
+  imply endorsement of your product without explicit written permission.
+
+4. Ownership
+------------
+
+The Software is licensed, not sold. The Licensor retains all ownership,
+intellectual property rights, and copyrights in and to the Software.
+
+5. Warranty and Liability
+-------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, WHETHER
+EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+6. Termination
+--------------
+
+This Commercial License is effective until terminated. It will terminate
+automatically if the Licensee fails to comply with any of its terms.
+Upon termination, the Licensee must cease all use of the Software under
+this Commercial License.
+
+Use of the Software may continue under the AGPLv3, if applicable.
+
+7. Governing Law
+----------------
+
+This Agreement shall be governed by and construed in accordance with the
+laws of the jurisdiction where the Licensor resides, unless otherwise
+agreed in writing.
+
+8. Contact and Commercial Terms
+-------------------------------
+
+To obtain a valid Commercial License (including pricing and specific terms),
+please contact:
+
+  Greg Papaspyropoulos
+  Email: greg@raiseperform.gr
+
+No rights are granted under this Commercial License unless and until the
+Licensor confirms acceptance of the commercial terms in writing.

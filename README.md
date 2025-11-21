@@ -245,4 +245,41 @@ Ideas include:
 ---
 
 ## 📜 License
-MIT License
+This project is available under a **dual-license model**:
+
+### 🟢 Open Source License (AGPLv3)
+The core project is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
+
+You are free to:
+- Use the software
+- Modify the software
+- Distribute it
+- Deploy it in your own open-source or internal projects
+
+However, the AGPLv3 requires that **if you run a modified version of this project as a network service (such as a SaaS or public API), you must also release the full source code of your modified version under the AGPLv3.**
+
+This ensures that improvements remain open and benefit the community.
+
+### 🔵 Commercial License (Proprietary)
+If you wish to:
+- Use this project in a **closed-source** product,
+- Integrate it into a **commercial** or **proprietary** platform,
+- Offer it as a **SaaS** or part of a commercial service **without releasing your own source code**,  
+- Or otherwise avoid the obligations of the AGPLv3,
+
+a **commercial license** is available.
+
+Commercial licenses grant you:
+- The right to use this project in proprietary software
+- The right to keep your modifications closed-source
+- The ability to create commercial SaaS offerings without AGPL obligations
+- Optional priority support or partnership terms (if applicable)
+
+To obtain a commercial license or request more information, please contact:
+
+**Greg Papaspyropoulos**  
+📧 greg@raiseperform.gr
+📧 greg.papaspiropoulos@gmail.com
+
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![Commercial License](https://img.shields.io/badge/License-Commercial-important.svg)](LICENSE-COMMERCIAL)
